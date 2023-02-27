@@ -3,6 +3,7 @@ import time
 import cv2 as cv
 import numpy as np
 
+
 def shapeDetection(resolution, image):
     shape = 'NONE'
     img = np.array(image).astype(np.uint8)
@@ -43,6 +44,7 @@ def shapeDetection(resolution, image):
     out_img = img_copy.transpose([1, 0, 2]).reshape(resolution[0] * resolution[1] * 3).tolist()
     return out_img, shape
 
+
 sim.simxFinish(-1)
 clientID = sim.simxStart('127.0.0.1', 19990, True, True, 5000, 5)
 
@@ -57,33 +59,32 @@ if clientID != -1:
     prox_data = sim.simxReadProximitySensor(clientID, prox, sim.simx_opmode_streaming)
     # conn_data = sim.simxReadForceSensor(clientID, conn, sim.simx_opmode_streaming)
     time.sleep(1)
-    flag = 0
+    flag = 1
 
     # while there's connection
     while sim.simxGetConnectionId(clientID) != -1:
+        flag2 = sim.simxGetInt32Signal(clientID, "flag", sim.simx_opmode_blocking)
         prox_data = sim.simxReadProximitySensor(clientID, prox, sim.simx_opmode_buffer)
         # if prox works
         if prox_data[0] == sim.simx_return_ok:
             # if prox detects
             if prox_data[1]:
                 # conn_code, conn_state, force, torque = sim.simxReadForceSensor(clientID, conn, sim.simx_opmode_buffer)
-                vision0_ret, resolution, image = sim.simxGetVisionSensorImage(clientID, vision0, 0, sim.simx_opmode_buffer)
+                vision0_ret, resolution, image = sim.simxGetVisionSensorImage(clientID, vision0, 0,
+                                                                              sim.simx_opmode_buffer)
                 # if
                 if vision0_ret == sim.simx_return_ok:
-                    if flag == 0:
-                        flag = 1  # da settare con --> string signalName=sim.getSignalName(int signalIndex,
-                        # int signalType)
+                    if flag == 1 or flag2[0] == 0:
+                        flag = 0
+                        sim.simxClearInt32Signal(clientID, "flag", sim.simx_opmode_oneshot)
                         out_img, shape = shapeDetection(resolution, image)
                         sim.simxSetVisionSensorImage(clientID, vision1, out_img, 0, sim.simx_opmode_oneshot)
                         sim.simxSetStringSignal(clientID, "shape_detected", shape, sim.simx_opmode_oneshot)
-                        # print(force[2])
-                        # 9.81 forza g \ 0.4 peso della mano \ 1.08 fattore fisso
-                        #print(force[2] / 9.81 - 0.4 - 1.095)
 
                 elif vision0_ret == sim.simx_return_novalue_flag:
                     print("no image yet")
                 # elif conn_code == sim.simx_return_novalue_flag:
-                    # print("error on force sensor")
+                # print("error on force sensor")
                 else:
                     print(vision0_ret, '-', prox_data[0])
 else:
